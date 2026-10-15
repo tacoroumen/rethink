@@ -1,6 +1,6 @@
 import HADevice from './base'
 import { Device as Thinq2Device } from '../thinq2/device'
-import { type Connection } from '../homeassistant'
+import { type ComponentInfo, type Connection, type Tombstone } from '../homeassistant'
 import { type Metadata } from '../thinq'
 import { allowExtendedType } from '@/util/casting'
 import AABBDevice from './aabb_device'
@@ -144,151 +144,165 @@ export const ERRORS = Enum.of({
 })
 
 export default class Device extends AABBDevice {
-    constructor(HA: Connection, thinq: Thinq2Device, meta: Metadata) {
-        super(HA, thinq, false)
-        this.setConfig(
-            allowExtendedType({
-                ...HADevice.config(meta, { name: 'LG Dryer' }),
-                components: {
-                    power: {
-                        platform: 'binary_sensor',
-                        unique_id: '$deviceid-power',
-                        state_topic: '$this/power',
-                        name: 'Power',
-                        icon: 'mdi:tumble-dryer',
-                        device_class: 'running',
-                    },
-                    status: {
-                        platform: 'sensor',
-                        unique_id: '$deviceid-status',
-                        state_topic: '$this/status',
-                        name: 'Status',
-                        icon: 'mdi:state-machine',
-                        device_class: 'enum',
-                        options: STATES.options,
-                    },
-                    phase: {
-                        platform: 'sensor',
-                        unique_id: '$deviceid-phase',
-                        state_topic: '$this/phase',
-                        name: 'Phase',
-                        icon: 'mdi:progress-clock',
-                        device_class: 'enum',
-                        options: PHASES.options,
-                    },
-                    error: {
-                        platform: 'binary_sensor',
-                        unique_id: '$deviceid-error',
-                        state_topic: '$this/error',
-                        name: 'Error',
-                        icon: 'mdi:check-circle',
-                        device_class: 'problem',
-                        entity_category: 'diagnostic',
-                    },
-                    error_message: {
-                        platform: 'sensor',
-                        unique_id: '$deviceid-error-message',
-                        state_topic: '$this/error_message',
-                        name: 'Error message',
-                        icon: 'mdi:alert-circle-outline',
-                        device_class: 'enum',
-                        entity_category: 'diagnostic',
-                        options: ERRORS.options,
-                    },
-                    course: {
-                        platform: 'sensor',
-                        unique_id: '$deviceid-course',
-                        state_topic: '$this/course',
-                        name: 'Course',
-                        icon: 'mdi:pin-outline',
-                        device_class: 'enum',
-                        options: COURSES.options,
-                    },
-                    dry_level: {
-                        platform: 'sensor',
-                        unique_id: '$deviceid-dry_level',
-                        state_topic: '$this/dry_level',
-                        name: 'Dry level',
-                        icon: 'mdi:water-percent',
-                        device_class: 'enum',
-                        options: DRY_LEVELS.options,
-                    },
-                    eco_hybrid: {
-                        platform: 'sensor',
-                        unique_id: '$deviceid-eco_hybrid',
-                        state_topic: '$this/eco_hybrid',
-                        name: 'Eco Hybrid',
-                        icon: 'mdi:leaf',
-                        device_class: 'enum',
-                        options: ECO_HYBRID.options,
-                    },
-                    remaining_time: {
-                        platform: 'sensor',
-                        unique_id: '$deviceid-remaining_time',
-                        state_topic: '$this/remaining_time',
-                        name: 'Remaining time',
-                        icon: 'mdi:timer-outline',
-                        device_class: 'duration',
-                        unit_of_measurement: 'min',
-                    },
-                    initial_time: {
-                        platform: 'sensor',
-                        unique_id: '$deviceid-initial_time',
-                        state_topic: '$this/initial_time',
-                        name: 'Initial time',
-                        icon: 'mdi:clock-outline',
-                        device_class: 'duration',
-                        unit_of_measurement: 'min',
-                        entity_category: 'diagnostic',
-                    },
-                    reserve_time: {
-                        platform: 'sensor',
-                        unique_id: '$deviceid-reserve_time',
-                        state_topic: '$this/reserve_time',
-                        name: 'Delay end',
-                        icon: 'mdi:timer-sand',
-                        device_class: 'duration',
-                        unit_of_measurement: 'min',
-                    },
-                    delay: {
-                        platform: 'binary_sensor',
-                        unique_id: '$deviceid-delay',
-                        state_topic: '$this/delay',
-                        name: 'Delay end set',
-                        icon: 'mdi:timer-sand',
-                    },
-                    anti_crease: {
-                        platform: 'binary_sensor',
-                        unique_id: '$deviceid-anti_crease',
-                        state_topic: '$this/anti_crease',
-                        name: 'Anti crease',
-                        icon: 'mdi:iron-outline',
-                    },
-                    child_lock: {
-                        platform: 'binary_sensor',
-                        unique_id: '$deviceid-child_lock',
-                        state_topic: '$this/child_lock',
-                        name: 'Child lock',
-                        icon: 'mdi:lock-outline',
-                        entity_category: 'diagnostic',
-                    },
-                    damp_dry_beep: {
-                        platform: 'binary_sensor',
-                        unique_id: '$deviceid-damp_dry_beep',
-                        state_topic: '$this/damp_dry_beep',
-                        name: 'Damp dry beep',
-                        icon: 'mdi:water-alert-outline',
-                    },
-                    hand_iron: {
-                        platform: 'binary_sensor',
-                        unique_id: '$deviceid-hand_iron',
-                        state_topic: '$this/hand_iron',
-                        name: 'Hand iron',
-                        icon: 'mdi:iron',
-                    },
-                },
-            }),
-        )
+    constructor(HA: Connection, thinq: Thinq2Device, meta: Metadata, ack = false) {
+        super(HA, thinq, ack)
+        this.setConfig({ ...HADevice.config(meta, { name: 'LG Dryer' }), components: this.components() })
+    }
+
+    /** The course table. A sibling model with courses of its own overrides this. */
+    protected courses(): Enum<string> {
+        return COURSES
+    }
+
+    /** The Eco Hybrid table, which a sibling model may label differently. */
+    protected ecoHybrid(): Enum<string> {
+        return ECO_HYBRID
+    }
+
+    /**
+     * The entities, for a sibling model to extend from `super.components()`. This runs from the
+     * constructor, before any subclass field is initialized, so an override may only use module-level
+     * constants and other methods that do the same.
+     */
+    protected components(): Record<string, ComponentInfo | Tombstone> {
+        return allowExtendedType({
+            power: {
+                platform: 'binary_sensor',
+                unique_id: '$deviceid-power',
+                state_topic: '$this/power',
+                name: 'Power',
+                icon: 'mdi:tumble-dryer',
+                device_class: 'running',
+            },
+            status: {
+                platform: 'sensor',
+                unique_id: '$deviceid-status',
+                state_topic: '$this/status',
+                name: 'Status',
+                icon: 'mdi:state-machine',
+                device_class: 'enum',
+                options: STATES.options,
+            },
+            phase: {
+                platform: 'sensor',
+                unique_id: '$deviceid-phase',
+                state_topic: '$this/phase',
+                name: 'Phase',
+                icon: 'mdi:progress-clock',
+                device_class: 'enum',
+                options: PHASES.options,
+            },
+            error: {
+                platform: 'binary_sensor',
+                unique_id: '$deviceid-error',
+                state_topic: '$this/error',
+                name: 'Error',
+                icon: 'mdi:check-circle',
+                device_class: 'problem',
+                entity_category: 'diagnostic',
+            },
+            error_message: {
+                platform: 'sensor',
+                unique_id: '$deviceid-error-message',
+                state_topic: '$this/error_message',
+                name: 'Error message',
+                icon: 'mdi:alert-circle-outline',
+                device_class: 'enum',
+                entity_category: 'diagnostic',
+                options: ERRORS.options,
+            },
+            course: {
+                platform: 'sensor',
+                unique_id: '$deviceid-course',
+                state_topic: '$this/course',
+                name: 'Course',
+                icon: 'mdi:pin-outline',
+                device_class: 'enum',
+                options: this.courses().options,
+            },
+            dry_level: {
+                platform: 'sensor',
+                unique_id: '$deviceid-dry_level',
+                state_topic: '$this/dry_level',
+                name: 'Dry level',
+                icon: 'mdi:water-percent',
+                device_class: 'enum',
+                options: DRY_LEVELS.options,
+            },
+            eco_hybrid: {
+                platform: 'sensor',
+                unique_id: '$deviceid-eco_hybrid',
+                state_topic: '$this/eco_hybrid',
+                name: 'Eco Hybrid',
+                icon: 'mdi:leaf',
+                device_class: 'enum',
+                options: this.ecoHybrid().options,
+            },
+            remaining_time: {
+                platform: 'sensor',
+                unique_id: '$deviceid-remaining_time',
+                state_topic: '$this/remaining_time',
+                name: 'Remaining time',
+                icon: 'mdi:timer-outline',
+                device_class: 'duration',
+                unit_of_measurement: 'min',
+            },
+            initial_time: {
+                platform: 'sensor',
+                unique_id: '$deviceid-initial_time',
+                state_topic: '$this/initial_time',
+                name: 'Initial time',
+                icon: 'mdi:clock-outline',
+                device_class: 'duration',
+                unit_of_measurement: 'min',
+                entity_category: 'diagnostic',
+            },
+            reserve_time: {
+                platform: 'sensor',
+                unique_id: '$deviceid-reserve_time',
+                state_topic: '$this/reserve_time',
+                name: 'Delay end',
+                icon: 'mdi:timer-sand',
+                device_class: 'duration',
+                unit_of_measurement: 'min',
+            },
+            delay: {
+                platform: 'binary_sensor',
+                unique_id: '$deviceid-delay',
+                state_topic: '$this/delay',
+                name: 'Delay end set',
+                icon: 'mdi:timer-sand',
+            },
+            anti_crease: {
+                platform: 'binary_sensor',
+                unique_id: '$deviceid-anti_crease',
+                state_topic: '$this/anti_crease',
+                name: 'Anti crease',
+                icon: 'mdi:iron-outline',
+            },
+            child_lock: {
+                platform: 'binary_sensor',
+                unique_id: '$deviceid-child_lock',
+                state_topic: '$this/child_lock',
+                name: 'Child lock',
+                icon: 'mdi:lock-outline',
+                entity_category: 'diagnostic',
+            },
+            damp_dry_beep: {
+                platform: 'binary_sensor',
+                unique_id: '$deviceid-damp_dry_beep',
+                state_topic: '$this/damp_dry_beep',
+                name: 'Damp dry beep',
+                icon: 'mdi:water-alert-outline',
+            },
+            hand_iron: {
+                platform: 'binary_sensor',
+                unique_id: '$deviceid-hand_iron',
+                state_topic: '$this/hand_iron',
+                name: 'Hand iron',
+                icon: 'mdi:iron',
+            },
+        })
     }
 
     start() {
@@ -300,7 +314,7 @@ export default class Device extends AABBDevice {
         // 0x31 (serial numbers) and 0x19 (power events) are not decoded.
     }
 
-    private processStatus(status: Buffer) {
+    protected processStatus(status: Buffer) {
         if (status[1] !== RECORD_LEN_MARKER) return // reject layout drift
         const rec = status.subarray(2)
 
@@ -318,10 +332,12 @@ export default class Device extends AABBDevice {
         this.publishProperty('phase', isActive ? PHASES.map(rec[PROCESS_OFFSET]) : undefined)
         this.publishProperty(
             'course',
-            isOff ? undefined : (COURSES.map(rec[SMART_COURSE_OFFSET]) ?? COURSES.map(rec[COURSE_OFFSET])),
+            isOff
+                ? undefined
+                : (this.courses().map(rec[SMART_COURSE_OFFSET]) ?? this.courses().map(rec[COURSE_OFFSET])),
         )
         this.publishProperty('dry_level', isOff ? undefined : DRY_LEVELS.map(rec[DRY_LEVEL_OFFSET]))
-        this.publishProperty('eco_hybrid', isOff ? undefined : ECO_HYBRID.map(rec[ECO_HYBRID_OFFSET]))
+        this.publishProperty('eco_hybrid', isOff ? undefined : this.ecoHybrid().map(rec[ECO_HYBRID_OFFSET]))
         this.publishProperty('remaining_time', isOff ? 0 : rec[REMAIN_HOUR_OFFSET] * 60 + rec[REMAIN_MIN_OFFSET])
         this.publishProperty('initial_time', isOff ? 0 : rec[INITIAL_HOUR_OFFSET] * 60 + rec[INITIAL_MIN_OFFSET])
         this.publishProperty('reserve_time', isOff ? 0 : rec[RESERVE_HOUR_OFFSET] * 60 + rec[RESERVE_MIN_OFFSET])
